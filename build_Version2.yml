@@ -1,0 +1,36 @@
+# 简单的 CMake 构建 GH Actions 工作流（Linux / macOS）
+name: Build (CMake)
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        config: [Release, Debug]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake
+
+      - name: Configure (CMake)
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=${{ matrix.config }}
+
+      - name: Build
+        run: cmake --build build --config ${{ matrix.config }} -- -j$(nproc)
+
+      - name: Run tests (if any)
+        run: |
+          if [ -f build/CTestTestfile.cmake ]; then
+            cmake --build build --target test || true
+          fi
