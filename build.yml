@@ -2,32 +2,49 @@ name: Build GPU Hook SO
 on:
   push:
     branches: [ main ]
+  pull_request:
+    branches: [ main ]
   workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        abi: [arm64-v8a, armeabi-v7a, x86_64]
+    env:
+      NDK_VERSION: r21b
+      ANDROID_PLATFORM: android-29
+
     steps:
       - uses: actions/checkout@v4
 
-      - name: 下载Android NDK r21b
+      - name: 安装 Android NDK ${{ env.NDK_VERSION }}
         run: |
-          wget https://dl.google.com/android/repository/android-ndk-r21b-linux-x86_64.zip
-          unzip android-ndk-r21b-linux-x86_64.zip
-          echo "NDK_ROOT=$PWD/android-ndk-r21b" >> $GITHUB_ENV
+          set -e
+          if [ -d "${{ github.workspace }}/android-ndk-${NDK_VERSION}" ]; then
+            echo "NDK already exists"
+          else
+            wget -q https://dl.google.com/android/repository/android-ndk-${NDK_VERSION}-linux-x86_64.zip
+            unzip -q android-ndk-${NDK_VERSION}-linux-x86_64.zip
+          fi
+          echo "NDK_ROOT=${{ github.workspace }}/android-ndk-${NDK_VERSION}" >> $GITHUB_ENV
 
-      - name: CMake编译arm64-v8a
+      - name: CMake 编译 ${{ matrix.abi }}
         run: |
-          mkdir build && cd build
+          set -e
+          mkdir -p build && cd build
           cmake -DCMAKE_TOOLCHAIN_FILE=${{ env.NDK_ROOT }}/build/cmake/android.toolchain.cmake \
-          -DANDROID_ABI=arm64-v8a \
-          -DANDROID_PLATFORM=android-29 \
-          -DCMAKE_BUILD_TYPE=Release \
-          ..
-          make -j$(nproc)
+            -DANDROID_ABI=${{ matrix.abi }} \
+            -DANDROID_PLATFORM=${{ env.ANDROID_PLATFORM }} \
+            -DCMAKE_BUILD_TYPE=Release \
+            ..
+          cmake --build . -- -j$(nproc)
 
-      - name: 上传编译产物so
+      - name: 上传编译产物 so
         uses: actions/upload-artifact@v4
         with:
-          name: libgpuhook-arm64
-          path: build/libgpuhook.so
+          name: libgpuhook-${{ matrix.abi }}
+          path: |
+            build/libgpuhook.so
+            build/*.so
