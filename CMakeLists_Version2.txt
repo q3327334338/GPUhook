@@ -1,15 +1,19 @@
-cmake_minimum_required(VERSION 3.10)
-project(GPU_SPOOF CXX)
+cmake_minimum_required(VERSION 3.18.1)
+project("gpuhook")
 
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
+include(FetchContent)
+FetchContent_Declare(
+  dobby
+  GIT_REPOSITORY https://github.com/jmpews/Dobby.git
+  GIT_TAG master
+)
+FetchContent_MakeAvailable(dobby)
 
-# 生成一个共享库（示例）
-add_library(gpu_spoof SHARED hook.cpp)
+add_library(
+        gpuhook
+        SHARED
+        hook.cpp
+)
 
-# 示例：链接 Android/系统库时可能需要修改下面的目标链接项
-# target_link_libraries(gpu_spoof PRIVATE log GLESv2)
-
-# 安装规则示例
-install(TARGETS gpu_spoof
-        LIBRARY DESTINATION lib)
+find_library(log-lib log)
+target_link_libraries(gpuhook dobby ${log-lib} GLESv2)
