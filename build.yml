@@ -1,36 +1,33 @@
-# 简单的 CMake 构建 GH Actions 工作流（Linux / macOS）
-name: Build (CMake)
-
+name: Build GPU Hook SO
 on:
   push:
     branches: [ main ]
-  pull_request:
-    branches: [ main ]
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        config: [Release, Debug]
-
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Install dependencies
+      - name: Download Android NDK r21b
         run: |
-          sudo apt-get update
-          sudo apt-get install -y build-essential cmake
+          wget https://dl.google.com/android/repository/android-ndk-r21b-linux-x86_64.zip
+          unzip android-ndk-r21b-linux-x86_64.zip
+          echo "NDK_ROOT=$PWD/android-ndk-r21b" >> $GITHUB_ENV
 
-      - name: Configure (CMake)
-        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=${{ matrix.config }}
-
-      - name: Build
-        run: cmake --build build --config ${{ matrix.config }} -- -j$(nproc)
-
-      - name: Run tests (if any)
+      - name: CMake Build arm64-v8a
         run: |
-          if [ -f build/CTestTestfile.cmake ]; then
-            cmake --build build --target test || true
-          fi
+          mkdir build && cd build
+          cmake -DCMAKE_TOOLCHAIN_FILE=${{ env.NDK_ROOT }}/build/cmake/android.toolchain.cmake \
+          -DANDROID_ABI=arm64-v8a \
+          -DANDROID_PLATFORM=android-29 \
+          -DCMAKE_BUILD_TYPE=Release \
+          ..
+          make -j$(nproc)
+
+      - name: Upload compiled so
+        uses: actions/upload-artifact@v4
+        with:
+          name: libgpuhook-arm64
+          path: build/libgpuhook.so
