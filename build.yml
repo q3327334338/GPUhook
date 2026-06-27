@@ -10,13 +10,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Download Android NDK r21b
+      - name: 下载Android NDK r21b
         run: |
           wget https://dl.google.com/android/repository/android-ndk-r21b-linux-x86_64.zip
           unzip android-ndk-r21b-linux-x86_64.zip
           echo "NDK_ROOT=$PWD/android-ndk-r21b" >> $GITHUB_ENV
 
-      - name: CMake Build arm64-v8a
+      - name: CMake编译arm64-v8a
         run: |
           mkdir build && cd build
           cmake -DCMAKE_TOOLCHAIN_FILE=${{ env.NDK_ROOT }}/build/cmake/android.toolchain.cmake \
@@ -26,7 +26,7 @@ jobs:
           ..
           make -j$(nproc)
 
-      - name: Upload compiled so
+      - name: 上传编译产物so
         uses: actions/upload-artifact@v4
         with:
           name: libgpuhook-arm64
