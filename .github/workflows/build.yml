@@ -16,12 +16,6 @@ jobs:
           unzip -q android-ndk-r21b-linux-x86_64.zip
           echo "NDK_ROOT=$PWD/android-ndk-r21b" >> $GITHUB_ENV
 
-      - name: 下载Dobby官方预编译库
-        run: |
-          wget -q https://github.com/jmpews/Dobby/releases/download/v2.0.0/dobby-android.tar.gz
-          mkdir dobby
-          tar -xzf dobby-android.tar.gz -C dobby
-
       - name: CMake编译arm64-v8a
         run: |
           mkdir build && cd build
