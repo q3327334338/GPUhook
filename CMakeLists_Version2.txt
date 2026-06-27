@@ -1,0 +1,15 @@
+cmake_minimum_required(VERSION 3.10)
+project(GPU_SPOOF CXX)
+
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+# 生成一个共享库（示例）
+add_library(gpu_spoof SHARED hook.cpp)
+
+# 示例：链接 Android/系统库时可能需要修改下面的目标链接项
+# target_link_libraries(gpu_spoof PRIVATE log GLESv2)
+
+# 安装规则示例
+install(TARGETS gpu_spoof
+        LIBRARY DESTINATION lib)
