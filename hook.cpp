@@ -3,6 +3,9 @@
 #include <sys/mman.h>
 #include <android/log.h>
 #include <GLES2/gl2.h>
+#include <string.h>
+#include <stdint.h>
+#include <unistd.h>
 
 #define LOG_TAG "GPU_SPOOF"
 #define LOGD(...) __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, __VA_ARGS__)
@@ -11,7 +14,6 @@ typedef const char* (*glGetString_t)(GLenum name);
 glGetString_t g_ori_glGetString = nullptr;
 static bool hooked = false;
 
-// 钩子函数：替换返回值
 const char* hook_glGetString(GLenum name)
 {
     if (name == GL_VENDOR)
@@ -23,7 +25,6 @@ const char* hook_glGetString(GLenum name)
     return g_ori_glGetString(name);
 }
 
-// 核心：PLT 导入表替换
 static int plt_hook(const char* lib_name, const char* sym_name, void* new_func, void** old_func)
 {
     void* base = dlopen(lib_name, RTLD_LAZY);
@@ -38,7 +39,6 @@ static int plt_hook(const char* lib_name, const char* sym_name, void* new_func, 
     const char* dynstr = nullptr;
     size_t rel_count = 0;
 
-    // 遍历段表找到符号表、重定位表
     for (int i = 0; i < ehdr->e_shnum; i++) {
         switch (shdr[i].sh_type) {
             case SHT_DYNSYM:
@@ -56,13 +56,14 @@ static int plt_hook(const char* lib_name, const char* sym_name, void* new_func, 
 
     if (!dynsym || !dynstr || !relplt) return -1;
 
-    // 匹配目标符号，替换GOT表地址
+    long page_sz = sysconf(_SC_PAGESIZE);
     for (size_t i = 0; i < rel_count; i++) {
         size_t sym_idx = ELF64_R_SYM(relplt[i].r_info);
         if (strcmp(dynstr + dynsym[sym_idx].st_name, sym_name) == 0) {
             uintptr_t got = (uintptr_t)base + relplt[i].r_offset;
             *old_func = (void*)*(uintptr_t*)got;
-            mprotect((void*)(got & ~(PAGE_SIZE - 1)), PAGE_SIZE, PROT_READ | PROT_WRITE);
+            uintptr_t aligned_addr = got & ~(uintptr_t)(page_sz - 1);
+            mprotect((void*)aligned_addr, page_sz, PROT_READ | PROT_WRITE);
             *(uintptr_t*)got = (uintptr_t)new_func;
             return 0;
         }
@@ -70,7 +71,14 @@ static int plt_hook(const char* lib_name, const char* sym_name, void* new_func, 
     return -1;
 }
 
-// so加载时自动执行初始化
+__attribute__((constructor)) void init_gpu_hook()
+{
+    if (hooked) return;
+    if (plt_hook("libGLESv2.so", "glGetString", (void*)hook_glGetString, (void**)&g_ori_glGetString) == 0) {
+        hooked = true;
+        LOGD("glGetString hook success");
+    }
+}
 __attribute__((constructor)) void init_gpu_hook()
 {
     if (hooked) return;
