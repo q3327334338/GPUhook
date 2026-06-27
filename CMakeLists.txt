@@ -1,19 +1,12 @@
 cmake_minimum_required(VERSION 3.18.1)
 project("gpuhook")
 
-include(FetchContent)
-FetchContent_Declare(
-  dobby
-  GIT_REPOSITORY https://github.com/jmpews/Dobby.git
-  GIT_TAG v2.0.0
+# 导入Dobby预编译静态库
+add_library(dobby STATIC IMPORTED)
+set_target_properties(dobby PROPERTIES
+    IMPORTED_LOCATION ${CMAKE_SOURCE_DIR}/dobby/arm64-v8a/libdobby.a
 )
-FetchContent_MakeAvailable(dobby)
-
-# 修复1：补全Dobby头文件包含路径
-target_include_directories(dobby_static PUBLIC "${dobby_SOURCE_DIR}/source")
-
-# 修复2：强制传递Android平台宏，解决OSMemory未声明问题
-target_compile_definitions(dobby_static PRIVATE __ANDROID__=1)
+target_include_directories(dobby INTERFACE ${CMAKE_SOURCE_DIR}/dobby/include)
 
 add_library(
         gpuhook
@@ -22,6 +15,4 @@ add_library(
 )
 
 find_library(log-lib log)
-
-# 修复3：修正链接目标名为 dobby_static
-target_link_libraries(gpuhook dobby_static ${log-lib} GLESv2)
+target_link_libraries(gpuhook dobby ${log-lib} GLESv2)
