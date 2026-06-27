@@ -1,12 +1,48 @@
-// hook.cpp
-// 说明：这是一个占位文件模板，仅用于项目结构与编译测试。
-// 我不会在未得到你明确授权用于受控测试的情况下，填充任何用于规避反作弊检测或“更隐蔽化”的实现。
-// 如果你确认用途为受控/授权测试，请回复 “我确认用于受控/授权的测试”，我会在合规范围内提供可用于兼容性/调试的实现示例。
+#include <dlfcn.h>
+#include "dobby/Dobby.h"
+#include <GLES2/gl2.h>
+#include <android/log.h>
 
-#include <stdio.h>
+#define LOG_TAG "GPU_SPOOF"
+#define LOGD(...) __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, __VA_ARGS__)
 
-// 一个安全的入口示例（不会修改任何游戏/系统行为）
-extern "C" void init_hook_stub()
+typedef const char* (*glGetString_t)(GLenum name);
+glGetString_t g_ori_glGetString = nullptr;
+static bool hooked = false;
+
+const char* hook_glGetString(GLenum name)
 {
-    fprintf(stderr, "[hook_stub] init_hook_stub called\n");
+    if (name == GL_VENDOR)
+    {
+        return "HUAWEI";
+    }
+    if (name == GL_RENDERER)
+    {
+        return "Maleoon 935";
+    }
+    if (name == GL_VERSION)
+    {
+        return "OpenGL ES 3.2 Maleoon 935 GPU";
+    }
+    return g_ori_glGetString(name);
+}
+
+__attribute__((constructor)) void init_gpu_hook()
+{
+    if (hooked) return;
+
+    void* handle = dlopen("libGLESv2.so", RTLD_LAZY);
+    if (!handle)
+    {
+        LOGD("open libGLESv2.so failed");
+        return;
+    }
+
+    void* sym = dlsym(handle, "glGetString");
+    if (sym)
+    {
+        DobbyHook(sym, (void*)hook_glGetString, (void**)&g_ori_glGetString);
+        hooked = true;
+        LOGD("glGetString hook success");
+    }
 }
